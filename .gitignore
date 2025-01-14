@@ -1,0 +1,4 @@
+node_modules/
+.env
+card_movements.csv
+coverage/

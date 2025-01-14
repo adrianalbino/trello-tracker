@@ -1,0 +1,23 @@
+{
+  "name": "trello-tracker",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "jest",
+    "fetch-boards": "node src/scripts/fetchBoards.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.7",
+    "csv-writer": "^1.6.0",
+    "dotenv": "^16.4.7",
+    "trello-node-api": "^0.0.9"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "Trello Card Movement History Tracker"
+}
