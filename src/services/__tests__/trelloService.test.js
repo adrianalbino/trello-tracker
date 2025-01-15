@@ -1,13 +1,29 @@
 const axios = require('axios');
 const TrelloService = require('../trelloService');
+const CacheService = require('../cacheService');
 
-// Mock axios
+// Mock both axios and CacheService
 jest.mock('axios');
+jest.mock('../cacheService');
 
 describe('TrelloService', () => {
     let trelloService;
+    let mockCacheGet;
+    let mockCacheSet;
 
     beforeEach(() => {
+        // Reset all mocks before each test
+        jest.clearAllMocks();
+        
+        // Setup cache mock methods
+        mockCacheGet = jest.fn().mockResolvedValue(null);
+        mockCacheSet = jest.fn().mockResolvedValue();
+        
+        CacheService.mockImplementation(() => ({
+            get: mockCacheGet,
+            set: mockCacheSet
+        }));
+
         trelloService = new TrelloService();
     });
 
@@ -18,6 +34,7 @@ describe('TrelloService', () => {
                 { id: 'board2', name: 'Board 2', otherField: 'value' }
             ];
 
+            mockCacheGet.mockResolvedValueOnce(null);
             axios.get.mockResolvedValueOnce({ data: mockBoards });
 
             const result = await trelloService.getBoards();
@@ -38,9 +55,20 @@ describe('TrelloService', () => {
             ]);
         });
 
+        it('should return cached boards if available', async () => {
+            const cachedBoards = [
+                { id: 'board1', name: 'Cached Board' }
+            ];
+            mockCacheGet.mockResolvedValueOnce(cachedBoards);
+
+            const result = await trelloService.getBoards();
+            expect(result).toEqual(cachedBoards);
+            expect(axios.get).not.toHaveBeenCalled();
+        });
+
         it('should handle errors appropriately', async () => {
-            const error = new Error('Network error');
-            axios.get.mockRejectedValueOnce(error);
+            mockCacheGet.mockResolvedValueOnce(null);
+            axios.get.mockRejectedValueOnce(new Error('Network error'));
 
             await expect(trelloService.getBoards()).rejects.toThrow('Network error');
         });
@@ -65,6 +93,7 @@ describe('TrelloService', () => {
                 }
             ];
 
+            mockCacheGet.mockResolvedValueOnce(null);
             axios.get.mockResolvedValueOnce({ data: mockActions });
 
             const result = await trelloService.getBoardActions('board123');
@@ -84,9 +113,18 @@ describe('TrelloService', () => {
             expect(result[0].data.listBefore.name).toBe('List 1');
         });
 
+        it('should return cached actions if available', async () => {
+            const cachedActions = [{ type: 'updateCard', data: { card: { name: 'Cached Card' } } }];
+            mockCacheGet.mockResolvedValueOnce(cachedActions);
+
+            const result = await trelloService.getBoardActions('board123');
+            expect(result).toEqual(cachedActions);
+            expect(axios.get).not.toHaveBeenCalled();
+        });
+
         it('should handle errors appropriately', async () => {
-            const error = new Error('Network error');
-            axios.get.mockRejectedValueOnce(error);
+            mockCacheGet.mockResolvedValueOnce(null);
+            axios.get.mockRejectedValueOnce(new Error('Network error'));
 
             await expect(trelloService.getBoardActions('board123')).rejects.toThrow('Network error');
         });
