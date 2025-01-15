@@ -11,6 +11,7 @@
     "axios": "^1.6.7",
     "csv-writer": "^1.6.0",
     "dotenv": "^16.4.7",
+    "googleapis": "^128.0.0",
     "trello-node-api": "^0.0.9"
   },
   "devDependencies": {
@@ -22,9 +23,13 @@
   "description": "Trello Card Movement History Tracker",
   "jest": {
     "testEnvironment": "node",
-    "testMatch": ["**/__tests__/**/*.test.js"],
+    "testMatch": [
+      "**/__tests__/**/*.test.js"
+    ],
     "collectCoverage": true,
     "coverageDirectory": "coverage",
-    "coveragePathIgnorePatterns": ["/node_modules/"]
+    "coveragePathIgnorePatterns": [
+      "/node_modules/"
+    ]
   }
 }

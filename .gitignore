@@ -4,3 +4,4 @@ card_movements.csv
 coverage/
 .cache/
 .DS_Store
+credentials.json
