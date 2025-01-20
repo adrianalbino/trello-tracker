@@ -55,8 +55,16 @@ class CacheService {
         try {
             const filePath = await this.getCacheFilePath(key);
             const data = await fs.readFile(filePath, 'utf8');
-            const { timestamp, value } = JSON.parse(data);
+            
+            let parsed;
+            try {
+                parsed = JSON.parse(data);
+            } catch (parseError) {
+                console.error('Cache read error:', parseError);
+                return null;
+            }
 
+            const { timestamp, value } = parsed;
             const age = Date.now() - timestamp;
             
             if (age > this.cacheLifetime) {
@@ -66,14 +74,19 @@ class CacheService {
 
             if (age > this.staleAfter && fetchFresh) {
                 this.refreshCache(key, fetchFresh)
-                    .catch(error => console.error('Background refresh failed:', error));
+                    .catch(error => {
+                        console.error('Background refresh failed:', error);
+                        return null;
+                    });
             }
 
             return value;
         } catch (error) {
-            if (error.code !== 'ENOENT') {
-                console.error('Cache read error:', error);
+            if (error.code === 'ENOENT') {
+                return null;
             }
+            
+            console.error('Cache read error:', error);
             return null;
         }
     }
@@ -103,12 +116,19 @@ class CacheService {
             value
         };
         
+        const filePath = await this.getCacheFilePath(key);
+        
         try {
-            const filePath = await this.getCacheFilePath(key);
             await fs.writeFile(filePath, JSON.stringify(data));
         } catch (error) {
             console.error('Cache write error:', error);
-            throw error;
+            if (error.code === 'ENOENT') {
+                await this.ensureCacheDirectory();
+                // Retry write after creating directory
+                await fs.writeFile(filePath, JSON.stringify(data));
+                return;
+            }
+            throw error;  // Re-throw non-ENOENT errors
         }
     }
 
@@ -121,10 +141,12 @@ class CacheService {
             const filePath = await this.getCacheFilePath(key);
             await fs.unlink(filePath);
         } catch (error) {
-            if (error.code !== 'ENOENT') {
-                console.error('Cache delete error:', error);
-                throw error;
+            if (error.code === 'ENOENT') {
+                // Silently ignore non-existent files
+                return;
             }
+            console.error('Cache delete error:', error);
+            throw error;
         }
     }
 }

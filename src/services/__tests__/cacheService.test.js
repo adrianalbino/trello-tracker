@@ -13,10 +13,18 @@ jest.mock('fs', () => ({
 
 describe('CacheService', () => {
     let cacheService;
+    let consoleErrorSpy;
 
     beforeEach(() => {
         cacheService = new CacheService('.cache');
         jest.clearAllMocks();
+        // Mock console.error before each test
+        consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+    });
+
+    afterEach(() => {
+        // Restore console.error after each test
+        consoleErrorSpy.mockRestore();
     });
 
     describe('get', () => {
@@ -45,15 +53,23 @@ describe('CacheService', () => {
         });
 
         it('should handle file not found errors', async () => {
-            fs.readFile.mockRejectedValueOnce(new Error('ENOENT: no such file'));
+            const enoentError = new Error('ENOENT: no such file');
+            enoentError.code = 'ENOENT';  // Set the error code
+            fs.readFile.mockRejectedValueOnce(enoentError);
+            
             const result = await cacheService.get('nonexistent-key');
             expect(result).toBeNull();
+            expect(consoleErrorSpy).not.toHaveBeenCalled();
         });
 
         it('should handle invalid JSON data', async () => {
             fs.readFile.mockResolvedValueOnce('invalid json');
             const result = await cacheService.get('test-key');
             expect(result).toBeNull();
+            expect(consoleErrorSpy).toHaveBeenCalledWith(
+                'Cache read error:',
+                expect.any(SyntaxError)
+            );
         });
     });
 
@@ -68,30 +84,37 @@ describe('CacheService', () => {
         });
 
         it('should create cache directory if it doesn\'t exist', async () => {
-            fs.writeFile.mockRejectedValueOnce(new Error('ENOENT: no such directory'));
+            const enoentError = new Error('ENOENT: no such directory');
+            enoentError.code = 'ENOENT';
+            fs.writeFile.mockRejectedValueOnce(enoentError);
+            fs.writeFile.mockResolvedValueOnce(undefined);
+            fs.mkdir.mockResolvedValueOnce(undefined);
             
             const testData = { test: 'data' };
             await cacheService.set('test-key', testData);
-
+            
             expect(fs.mkdir).toHaveBeenCalledWith('.cache', { recursive: true });
-            expect(fs.writeFile).toHaveBeenCalledTimes(2); // First fails, second succeeds
+            expect(fs.writeFile).toHaveBeenCalledTimes(2);
         });
 
         it('should handle other write errors', async () => {
-            fs.writeFile.mockRejectedValueOnce(new Error('EPERM: permission denied'));
-            
+            const permError = new Error('EPERM: permission denied');
+            permError.code = 'EPERM';
+            fs.writeFile.mockRejectedValueOnce(permError);
             
             const testData = { test: 'data' };
             await expect(cacheService.set('test-key', testData))
                 .rejects.toThrow('EPERM: permission denied');
-
-            expect(fs.mkdir).not.toHaveBeenCalled();
+            expect(consoleErrorSpy).toHaveBeenCalledWith(
+                'Cache write error:',
+                expect.any(Error)
+            );
         });
 
         it('should retry write after creating directory', async () => {
-            // First write fails with ENOENT
-            fs.writeFile.mockRejectedValueOnce(new Error('ENOENT: no such directory'));
-            // Second write succeeds
+            const enoentError = new Error('ENOENT: no such directory');
+            enoentError.code = 'ENOENT';
+            fs.writeFile.mockRejectedValueOnce(enoentError);
             fs.writeFile.mockResolvedValueOnce(undefined);
             fs.mkdir.mockResolvedValueOnce(undefined);
 
@@ -112,8 +135,23 @@ describe('CacheService', () => {
         });
 
         it('should handle non-existent file deletion gracefully', async () => {
-            fs.unlink.mockRejectedValueOnce(new Error('ENOENT: no such file'));
+            const error = new Error('ENOENT: no such file');
+            error.code = 'ENOENT';
+            fs.unlink.mockRejectedValueOnce(error);
+            
             await expect(cacheService.delete('nonexistent-key')).resolves.not.toThrow();
+        });
+
+        it('should handle delete errors', async () => {
+            const error = new Error('Delete failed');
+            fs.unlink.mockRejectedValueOnce(error);
+            
+            await expect(cacheService.delete('test-key'))
+                .rejects.toThrow('Delete failed');
+            expect(consoleErrorSpy).toHaveBeenCalledWith(
+                'Cache delete error:',
+                error
+            );
         });
     });
 
@@ -151,8 +189,6 @@ describe('CacheService', () => {
             const fetchFresh = jest.fn().mockRejectedValue(new Error('Refresh failed'));
             fs.readFile.mockResolvedValueOnce(JSON.stringify(mockData));
 
-            const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
-            
             const result = await cacheService.get('test-key', fetchFresh);
             
             // Should return stale data
@@ -162,9 +198,7 @@ describe('CacheService', () => {
             await new Promise(resolve => setTimeout(resolve, 0));
             
             // Verify error was logged
-            expect(consoleSpy).toHaveBeenCalledWith('Cache refresh error:', expect.any(Error));
-            
-            consoleSpy.mockRestore();
+            expect(consoleErrorSpy).toHaveBeenCalledWith('Cache refresh error:', expect.any(Error));
         });
     });
 });

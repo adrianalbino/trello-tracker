@@ -1,7 +1,7 @@
-const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 const fs = require('fs').promises;
-const csv = require('csv-parse');
 const path = require('path');
+const { createObjectCsvWriter } = require('csv-writer');
+const csv = require('csv-parse');
 
 /**
  * @typedef {Object} Movement
@@ -35,10 +35,15 @@ class CsvService {
      */
     async initializeCsvWriter(append = false) {
         if (this.createDirectory) {
-            await fs.mkdir(path.dirname(this.outputPath), { recursive: true });
+            const dir = path.dirname(this.outputPath);
+            try {
+                await fs.access(dir);
+            } catch {
+                await fs.mkdir(dir, { recursive: true });
+            }
         }
 
-        this.csvWriter = createCsvWriter({
+        this.csvWriter = createObjectCsvWriter({
             path: this.outputPath,
             header: this.headers,
             append
@@ -108,11 +113,20 @@ class CsvService {
 
         try {
             const existingMovements = await this.readExistingMovements();
+            
+            // First deduplicate the new movements array itself
+            const uniqueNewMovements = Array.from(
+                new Map(
+                    movements.map(movement => [CsvService.getMovementKey(movement), movement])
+                ).values()
+            );
+
+            // Then filter against existing movements
             const existingKeys = new Set(
                 existingMovements.map(CsvService.getMovementKey)
             );
 
-            const newMovements = movements.filter(movement => 
+            const newMovements = uniqueNewMovements.filter(movement => 
                 !existingKeys.has(CsvService.getMovementKey(movement))
             );
 
