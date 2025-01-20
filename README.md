@@ -50,9 +50,10 @@ To fetch list of boards available from API:
 npm start
 ```
 
-To fetch card movements from a specific board and generate CSV file (if it doesn't exist yet) and Google Sheets integration (checks cache first). Extract board-id and sheets-id from their respective URLs:
+To fetch card movements from a specific board and generate CSV file (if it doesn't exist yet) and Google Sheets integration (checks cache first). Spreadsheet ID is optional, if not provided, only CSV file will be generated. Extract board-id and sheets-id from their respective URLs:
 
 trello board-id: `https://trello.com/b/<board-id>/<board-name>`
+
 spreadsheet-id: `https://docs.google.com/spreadsheets/d/<spreadsheet-id>/edit?gid=<sheet-id>#gid=<sheet-id>`
 
 ```bash
