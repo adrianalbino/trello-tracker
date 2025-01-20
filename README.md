@@ -63,7 +63,7 @@ npm start -- <board-id> <spreadsheet-id>
 
 To get FRESH data and force to bypass cache:
 ```bash
-npm start -- <board-id> <spreadsheet-id> --force
+npm start -- <board-id> <spreadsheet-id> --fresh
 ```
 
 
