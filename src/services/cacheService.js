@@ -53,14 +53,17 @@ class CacheService {
             timestamp: Date.now(),
             value
         };
+        
         try {
             await fs.writeFile(filePath, JSON.stringify(data));
         } catch (error) {
             console.error('Cache write error:', error);
             if (error.message.includes('ENOENT')) {
                 await fs.mkdir(this.cachePath, { recursive: true });
+                // Retry write after creating directory
+                await fs.writeFile(filePath, JSON.stringify(data));
             } else {
-                throw error; // Re-throw non-ENOENT errors
+                throw error;
             }
         }
     }

@@ -31,24 +31,24 @@ class CsvService {
             }
 
             const content = await fs.readFile(this.outputPath, 'utf-8');
-            return new Promise((resolve, reject) => {
+            return new Promise((resolve) => {
                 csv.parse(content, {
-                    columns: true,  // This will auto-detect headers
+                    columns: true,
                     skip_empty_lines: true,
                     trim: true
                 }, (err, records) => {
                     if (err) {
                         console.error('Error parsing CSV:', err);
-                        reject(err);
+                        resolve([]);
                     } else {
                         // Transform the records to match our expected format
-                        const transformedRecords = records.map(record => ({
+                        const movements = records.map(record => ({
                             cardName: record['Card Name'],
                             oldLocation: record['Old Board/List Name'],
                             newLocation: record['New Board/List Name'],
                             timestamp: record['Timestamp of Movement']
                         }));
-                        resolve(transformedRecords);
+                        resolve(movements);
                     }
                 });
             });
