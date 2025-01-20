@@ -1,18 +1,56 @@
 const fs = require('fs').promises;
 const path = require('path');
 
+/**
+ * @typedef {Object} CacheOptions
+ * @property {string} [cachePath='.cache'] - Path to cache directory
+ * @property {number} [lifetime=86400000] - Cache lifetime in milliseconds
+ * @property {number} [staleAfter=3600000] - Time after which to check for updates
+ */
+
+/**
+ * Service for handling file-based caching
+ */
 class CacheService {
-    constructor(cachePath = '.cache') {
+    /**
+     * @param {CacheOptions} options
+     */
+    constructor(options = {}) {
+        const {
+            cachePath = '.cache',
+            lifetime = 24 * 60 * 60 * 1000,
+            staleAfter = 1 * 60 * 60 * 1000
+        } = options;
+
         this.cachePath = cachePath;
-        this.cacheLifetime = 24 * 60 * 60 * 1000; // 24 hours
-        this.staleAfter = 1 * 60 * 60 * 1000;     // 1 hour - check for updates after this
+        this.cacheLifetime = lifetime;
+        this.staleAfter = staleAfter;
     }
 
-    async getCacheFilePath(key) {
+    /**
+     * Ensures cache directory exists
+     * @private
+     */
+    async ensureCacheDirectory() {
         await fs.mkdir(this.cachePath, { recursive: true });
+    }
+
+    /**
+     * Gets cache file path for a key
+     * @param {string} key - Cache key
+     * @returns {Promise<string>} Full path to cache file
+     */
+    async getCacheFilePath(key) {
+        await this.ensureCacheDirectory();
         return path.join(this.cachePath, `${key}.json`);
     }
 
+    /**
+     * Retrieves value from cache
+     * @param {string} key - Cache key
+     * @param {Function} [fetchFresh] - Function to fetch fresh data
+     * @returns {Promise<any>} Cached value or null
+     */
     async get(key, fetchFresh) {
         try {
             const filePath = await this.getCacheFilePath(key);
@@ -21,59 +59,72 @@ class CacheService {
 
             const age = Date.now() - timestamp;
             
-            // If data is too old, delete and return null
             if (age > this.cacheLifetime) {
                 await this.delete(key);
                 return null;
             }
 
-            // If data is stale but not expired, trigger background refresh
             if (age > this.staleAfter && fetchFresh) {
-                this.refreshCache(key, fetchFresh).catch(console.error);
+                this.refreshCache(key, fetchFresh)
+                    .catch(error => console.error('Background refresh failed:', error));
             }
 
             return value;
         } catch (error) {
+            if (error.code !== 'ENOENT') {
+                console.error('Cache read error:', error);
+            }
             return null;
         }
     }
 
+    /**
+     * Refreshes cache with fresh data
+     * @private
+     */
     async refreshCache(key, fetchFresh) {
         try {
             const freshData = await fetchFresh();
             await this.set(key, freshData);
         } catch (error) {
             console.error('Cache refresh error:', error);
+            throw error;
         }
     }
 
+    /**
+     * Sets value in cache
+     * @param {string} key - Cache key
+     * @param {any} value - Value to cache
+     */
     async set(key, value) {
-        const filePath = path.join(this.cachePath, `${key}.json`);
         const data = {
             timestamp: Date.now(),
             value
         };
         
         try {
+            const filePath = await this.getCacheFilePath(key);
             await fs.writeFile(filePath, JSON.stringify(data));
         } catch (error) {
             console.error('Cache write error:', error);
-            if (error.message.includes('ENOENT')) {
-                await fs.mkdir(this.cachePath, { recursive: true });
-                // Retry write after creating directory
-                await fs.writeFile(filePath, JSON.stringify(data));
-            } else {
-                throw error;
-            }
+            throw error;
         }
     }
 
+    /**
+     * Deletes value from cache
+     * @param {string} key - Cache key
+     */
     async delete(key) {
         try {
             const filePath = await this.getCacheFilePath(key);
             await fs.unlink(filePath);
         } catch (error) {
-            // Ignore if file doesn't exist
+            if (error.code !== 'ENOENT') {
+                console.error('Cache delete error:', error);
+                throw error;
+            }
         }
     }
 }
