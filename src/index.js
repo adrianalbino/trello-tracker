@@ -16,14 +16,14 @@ async function main() {
         const boardId = nonFlagArgs[0];
         const spreadsheetId = nonFlagArgs[1];
 
+        // Get all boards
+        const boards = await trelloService.getBoards(forceFresh);
+        console.log('Available boards:', boards);
+
         if (!boardId) {
             console.log('Please provide a board ID as an argument');
             return;
         }
-
-        // Get all boards
-        const boards = await trelloService.getBoards(forceFresh);
-        console.log('Available boards:', boards);
 
         // Get board actions
         const actions = await trelloService.getBoardActions(boardId, forceFresh);
