@@ -21,89 +21,88 @@ class GoogleSheetsService {
         this.initialized = true;
     }
 
-    async appendMovements(spreadsheetId, movements) {
-        await this.initialize();
-
-        const values = movements.map(movement => [
-            movement.cardName,
-            movement.oldLocation,
-            movement.newLocation,
-            movement.timestamp
-        ]);
-
-        try {
-            await this.sheets.spreadsheets.values.append({
-                spreadsheetId,
-                range: 'Sheet1!A:D',
-                valueInputOption: 'RAW',
-                insertDataOption: 'INSERT_ROWS',
-                resource: {
-                    values
-                }
-            });
-
-            console.log('Data successfully appended to Google Sheet');
-        } catch (error) {
-            console.error('Error appending to Google Sheet:', error);
-            throw error;
-        }
-    }
-
-    async updateOrAppendMovements(spreadsheetId, movements) {
+    async readExistingMovements(spreadsheetId) {
         await this.initialize();
 
         try {
-            // First, get existing data
             const response = await this.sheets.spreadsheets.values.get({
                 spreadsheetId,
                 range: 'Sheet1!A:D'
             });
 
-            const existingData = response.data.values || [];
-            const existingCards = new Set(existingData.map(row => row[0]));
+            const rows = response.data.values || [];
+            if (rows.length <= 1) return []; // Empty or only headers
 
-            // Separate new and existing movements
-            const newMovements = [];
-            const updateMovements = [];
-
-            movements.forEach(movement => {
-                if (existingCards.has(movement.cardName)) {
-                    updateMovements.push(movement);
-                } else {
-                    newMovements.push(movement);
-                }
-            });
-
-            // Handle updates
-            if (updateMovements.length > 0) {
-                for (const movement of updateMovements) {
-                    const rowIndex = existingData.findIndex(row => row[0] === movement.cardName);
-                    if (rowIndex !== -1) {
-                        await this.sheets.spreadsheets.values.update({
-                            spreadsheetId,
-                            range: `Sheet1!A${rowIndex + 1}:D${rowIndex + 1}`,
-                            valueInputOption: 'RAW',
-                            resource: {
-                                values: [[
-                                    movement.cardName,
-                                    movement.oldLocation,
-                                    movement.newLocation,
-                                    movement.timestamp
-                                ]]
-                            }
-                        });
-                    }
-                }
-            }
-
-            // Handle new entries
-            if (newMovements.length > 0) {
-                await this.appendMovements(spreadsheetId, newMovements);
-            }
-
-            console.log('Data successfully updated in Google Sheet');
+            // Skip header row and transform data
+            return rows.slice(1).map(row => ({
+                cardName: row[0],
+                oldLocation: row[1],
+                newLocation: row[2],
+                timestamp: row[3]
+            }));
         } catch (error) {
-            console.error('Error updating Google Sheet:', error);
+            console.error('Error reading from Google Sheet:', error);
+            return [];
+        }
+    }
+
+    async writeMovements(spreadsheetId, movements) {
+        await this.initialize();
+
+        try {
+            // Get existing movements
+            const existingMovements = await this.readExistingMovements(spreadsheetId);
+            
+            // Create unique keys for existing movements
+            const existingKeys = new Set(
+                existingMovements.map(m => 
+                    `${m.cardName}-${m.oldLocation}-${m.newLocation}-${m.timestamp}`
+                )
+            );
+
+            // Filter out duplicates
+            const newMovements = movements.filter(movement => 
+                !existingKeys.has(
+                    `${movement.cardName}-${movement.oldLocation}-${movement.newLocation}-${movement.timestamp}`
+                )
+            );
+
+            if (newMovements.length > 0) {
+                // Sort all movements chronologically
+                const allMovements = [...existingMovements, ...newMovements].sort((a, b) => 
+                    new Date(a.timestamp) - new Date(b.timestamp)
+                );
+
+                // Convert to row format
+                const values = [
+                    ['Card Name', 'Old Board/List Name', 'New Board/List Name', 'Timestamp of Movement'],
+                    ...allMovements.map(movement => [
+                        movement.cardName,
+                        movement.oldLocation,
+                        movement.newLocation,
+                        movement.timestamp
+                    ])
+                ];
+
+                // Clear existing content and write all data
+                await this.sheets.spreadsheets.values.clear({
+                    spreadsheetId,
+                    range: 'Sheet1!A:D'
+                });
+
+                await this.sheets.spreadsheets.values.update({
+                    spreadsheetId,
+                    range: 'Sheet1!A1',
+                    valueInputOption: 'RAW',
+                    resource: { values }
+                });
+
+                console.log(`Google Sheet updated with ${newMovements.length} new records, all entries sorted chronologically`);
+            } else {
+                console.log('No new movements to write to Google Sheet');
+            }
+        } catch (error) {
+            console.error('Error writing to Google Sheet:', error);
             throw error;
         }
     }

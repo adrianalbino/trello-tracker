@@ -38,7 +38,7 @@ async function main() {
 
         // If spreadsheet ID is provided, also write to Google Sheets
         if (spreadsheetId) {
-            await sheetsService.updateOrAppendMovements(spreadsheetId, movements);
+            await sheetsService.writeMovements(spreadsheetId, movements);
         }
 
     } catch (error) {
