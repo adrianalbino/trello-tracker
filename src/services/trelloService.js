@@ -10,12 +10,14 @@ class TrelloService {
         this.cacheService = new CacheService();
     }
 
-    async getBoards() {
+    async getBoards(forceFresh = false) {
         try {
-            // Check cache first
-            const cachedBoards = await this.cacheService.get('boards');
-            if (cachedBoards) {
-                return cachedBoards;
+            // Check cache first if not forcing fresh
+            if (!forceFresh) {
+                const cachedBoards = await this.cacheService.get('boards');
+                if (cachedBoards) {
+                    return cachedBoards;
+                }
             }
 
             const response = await axios.get(`${this.baseURL}/members/me/boards`, {
@@ -40,13 +42,15 @@ class TrelloService {
         }
     }
 
-    async getBoardActions(boardId) {
+    async getBoardActions(boardId, forceFresh = false) {
         try {
-            // Check cache first
             const cacheKey = `board_actions_${boardId}`;
-            const cachedActions = await this.cacheService.get(cacheKey);
-            if (cachedActions) {
-                return cachedActions;
+            // Check cache first if not forcing fresh
+            if (!forceFresh) {
+                const cachedActions = await this.cacheService.get(cacheKey);
+                if (cachedActions) {
+                    return cachedActions;
+                }
             }
 
             const response = await axios.get(`${this.baseURL}/boards/${boardId}/actions`, {

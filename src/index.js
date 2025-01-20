@@ -9,7 +9,8 @@ async function main() {
         const sheetsService = new GoogleSheetsService();
 
         // Get all boards
-        const boards = await trelloService.getBoards();
+        const forceFresh = process.argv.includes('--fresh');
+        const boards = await trelloService.getBoards(forceFresh);
         console.log('Available boards:', boards);
 
         // If board ID is provided as argument, use it
@@ -22,7 +23,7 @@ async function main() {
         }
 
         // Get board actions
-        const actions = await trelloService.getBoardActions(boardId);
+        const actions = await trelloService.getBoardActions(boardId, forceFresh);
         
         // Format actions
         const movements = actions.map(action => ({
