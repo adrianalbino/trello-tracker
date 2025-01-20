@@ -57,13 +57,13 @@ trello board-id: `https://trello.com/b/<board-id>/<board-name>`
 spreadsheet-id: `https://docs.google.com/spreadsheets/d/<spreadsheet-id>/edit?gid=<sheet-id>#gid=<sheet-id>`
 
 ```bash
-npm start <board-id> <spreadsheet-id>
+npm start -- <board-id> <spreadsheet-id>
 ```
 
 
 To get FRESH data and force to bypass cache:
 ```bash
-npm start <board-id> <spreadsheet-id> --force
+npm start -- <board-id> <spreadsheet-id> --force
 ```
 
 

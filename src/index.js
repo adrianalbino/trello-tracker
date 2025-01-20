@@ -8,19 +8,22 @@ async function main() {
         const csvService = new CsvService('card_movements.csv');
         const sheetsService = new GoogleSheetsService();
 
-        // Get all boards
-        const forceFresh = process.argv.includes('--fresh');
-        const boards = await trelloService.getBoards(forceFresh);
-        console.log('Available boards:', boards);
+        // Get all command line arguments
+        const args = process.argv.slice(2);
+        const forceFresh = args.includes('--fresh');
 
-        // If board ID is provided as argument, use it
-        const boardId = process.argv[2];
-        const spreadsheetId = process.argv[3]; // Add spreadsheet ID as command line argument
+        const nonFlagArgs = args.filter(arg => !arg.startsWith('--'));
+        const boardId = nonFlagArgs[0];
+        const spreadsheetId = nonFlagArgs[1];
 
         if (!boardId) {
             console.log('Please provide a board ID as an argument');
             return;
         }
+
+        // Get all boards
+        const boards = await trelloService.getBoards(forceFresh);
+        console.log('Available boards:', boards);
 
         // Get board actions
         const actions = await trelloService.getBoardActions(boardId, forceFresh);
